@@ -124,11 +124,13 @@ public class LuciphorDtaselectIntegrator {
 						newLineValues.add(String.valueOf(luciphorEntry.getLocalFLR()));
 						// get the new line as string
 						final StringBuilder newLine = new StringBuilder();
+						int i = 0;
 						for (final String value : newLineValues) {
-							if (!"".equals(newLine.toString())) {
+							if (i > 0) {
 								newLine.append("\t");
 							}
 							newLine.append(value);
+							i++;
 						}
 						// write the new line
 						fw.write(newLine.toString() + "\n");
