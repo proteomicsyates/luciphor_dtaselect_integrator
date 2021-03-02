@@ -31,6 +31,7 @@ public class LuciphorDtaselectIntegrator {
 	private static final String COL_LOCAL_FLR = "localFLR";
 	private static final String DTA_COL_PSMID = "FileName";
 	private static final String DTA_COL_SEQUENCE = "Sequence";
+	private static final String COL_PEP1SCORE = "pep1score";
 
 	public LuciphorDtaselectIntegrator(String luciphorPath, String dtaselectPath, Double lflrThreshold,
 			Double gflrThreshold) {
@@ -91,7 +92,8 @@ public class LuciphorDtaselectIntegrator {
 					// get the indexes of the headers
 					indexByHeader = getIndexByHeader(line);
 					// add new columns for the original sequence and the luciphor scores
-					fw.write(line + "\toriginal_sequence\t" + COL_GLOBAL_FLR + "\t" + COL_LOCAL_FLR + "\n");
+					fw.write(line + "\toriginal_sequence\tluciphor_score\t" + COL_GLOBAL_FLR + "\t" + COL_LOCAL_FLR
+							+ "\n");
 					continue;
 				}
 				if (!isPSMLine) {
@@ -108,7 +110,7 @@ public class LuciphorDtaselectIntegrator {
 						final String originalSequence = split[indexByHeader.get(DTA_COL_SEQUENCE)];
 						final String sequenceToReplace = luciphorEntry.getFormattedPredictedSequence(originalSequence);
 //						if (originalSequence.equals(sequenceToReplace)) {
-//							fw.write(line + "\t\t\t\n");
+//							fw.write(line + "\t\t\t\t\n");
 //							continue;
 //						}
 						// create new array of values
@@ -127,8 +129,10 @@ public class LuciphorDtaselectIntegrator {
 							numChanged++;
 							newLineValues.add(originalSequence);
 						}
+						newLineValues.add(String.valueOf(luciphorEntry.getScore()));
 						newLineValues.add(String.valueOf(luciphorEntry.getGlobalFLR()));
 						newLineValues.add(String.valueOf(luciphorEntry.getLocalFLR()));
+
 						// get the new line as string
 						final StringBuilder newLine = new StringBuilder();
 						int i = 0;
@@ -144,7 +148,7 @@ public class LuciphorDtaselectIntegrator {
 
 						continue;
 					} else {
-						fw.write(line + "\t\t\t\n");
+						fw.write(line + "\t\t\t\t\n");
 					}
 				}
 			}
@@ -213,12 +217,24 @@ public class LuciphorDtaselectIntegrator {
 		for (int numLine = 1; numLine < lines.size(); numLine++) {
 			final String line = lines.get(numLine);
 			final String[] split = line.split("\t");
+			if (!indexByHeader.containsKey(COL_SPEC_ID) || !indexByHeader.containsKey(COL_PRED_PEP1)) {
+				continue;
+			}
 			final String psmID = split[indexByHeader.get(COL_SPEC_ID)];
 			final String predictedSequence = split[indexByHeader.get(COL_PRED_PEP1)];
-			final double localFLR = Double.valueOf(split[indexByHeader.get(COL_LOCAL_FLR)]);
-			final double globalFLR = Double.valueOf(split[indexByHeader.get(COL_GLOBAL_FLR)]);
-			final LuciphorEntry luciphorEntry = new LuciphorEntry(psmID, predictedSequence, localFLR, globalFLR);
-
+			double localFLR = Double.NaN;
+			if (indexByHeader.containsKey(COL_LOCAL_FLR)) {
+				localFLR = Double.valueOf(split[indexByHeader.get(COL_LOCAL_FLR)]);
+			}
+			double globalFLR = Double.NaN;
+			if (indexByHeader.containsKey(COL_GLOBAL_FLR)) {
+				globalFLR = Double.valueOf(split[indexByHeader.get(COL_GLOBAL_FLR)]);
+			}
+			double score = Double.NaN;
+			if (indexByHeader.containsKey(COL_PEP1SCORE)) {
+				score = Double.valueOf(split[indexByHeader.get(COL_PEP1SCORE)]);
+			}
+			final LuciphorEntry luciphorEntry = new LuciphorEntry(psmID, predictedSequence, localFLR, globalFLR, score);
 			ret.add(luciphorEntry);
 		}
 		System.out.println(ret.size() + " PSMs read from Luciphor file");

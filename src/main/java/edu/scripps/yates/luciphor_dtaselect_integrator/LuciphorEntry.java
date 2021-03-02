@@ -14,13 +14,15 @@ public class LuciphorEntry {
 	private final String predictedSequence;
 	private final double localFLR;
 	private final double globalFLR;
+	private final double score;
 	private static Set<Character> modifiedAAs = new THashSet<Character>();
 
-	public LuciphorEntry(String psmID, String predictedSequence, double localFLR, double globalFLR) {
+	public LuciphorEntry(String psmID, String predictedSequence, double localFLR, double globalFLR, double score) {
 		this.psmID = psmID;
 		this.predictedSequence = predictedSequence;
 		this.localFLR = localFLR;
 		this.globalFLR = globalFLR;
+		this.score = score;
 		findModifiedAAs(predictedSequence);
 	}
 
@@ -121,6 +123,10 @@ public class LuciphorEntry {
 			ret.put(ptmInPeptide.getPosition(), ptmInPeptide);
 		}
 		return ret;
+	}
+
+	public double getScore() {
+		return score;
 	}
 
 }

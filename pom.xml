@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>edu.scripps.yates</groupId>
 	<artifactId>luciphor_dtaselect_integrator</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 	<name>luciphor_dtaselect_integrator</name>
 	<description>Program that takes output from luciphor and some thresholds on its scores and integrates the results into a DTASelect-filter.txt file.</description>
 
