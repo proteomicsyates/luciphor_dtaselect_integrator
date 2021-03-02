@@ -106,7 +106,7 @@ public class LuciphorDtaselectIntegrator {
 						final String originalSequence = split[indexByHeader.get(DTA_COL_SEQUENCE)];
 						final String sequenceToReplace = luciphorEntry.getFormattedPredictedSequence(originalSequence);
 						if (originalSequence.equals(sequenceToReplace)) {
-							fw.write(line + "\n");
+							fw.write(line + "\t\t\t\n");
 							continue;
 						}
 						// create new array of values
@@ -137,7 +137,7 @@ public class LuciphorDtaselectIntegrator {
 						numChanged++;
 						continue;
 					} else {
-						fw.write(line + "\n");
+						fw.write(line + "\t\t\t\n");
 					}
 				}
 			}
