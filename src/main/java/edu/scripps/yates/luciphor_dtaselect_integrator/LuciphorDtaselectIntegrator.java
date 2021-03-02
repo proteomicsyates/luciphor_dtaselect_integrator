@@ -79,7 +79,9 @@ public class LuciphorDtaselectIntegrator {
 				if (line.startsWith("Unique\t")) {
 					isPSMHeader = true;
 					passedPSMHeader = true;
-				} else if (line.startsWith("\t") || line.startsWith("*\t")) {
+				} else if (line.startsWith("\t")) {
+					isPSMLine = true;
+				} else if (line.startsWith("*\t")) {
 					isPSMLine = true;
 				} else {
 					isPSMLine = false;
@@ -105,10 +107,10 @@ public class LuciphorDtaselectIntegrator {
 						// replace sequence
 						final String originalSequence = split[indexByHeader.get(DTA_COL_SEQUENCE)];
 						final String sequenceToReplace = luciphorEntry.getFormattedPredictedSequence(originalSequence);
-						if (originalSequence.equals(sequenceToReplace)) {
-							fw.write(line + "\t\t\t\n");
-							continue;
-						}
+//						if (originalSequence.equals(sequenceToReplace)) {
+//							fw.write(line + "\t\t\t\n");
+//							continue;
+//						}
 						// create new array of values
 						final List<String> newLineValues = new ArrayList<String>();
 						for (int i = 0; i < split.length; i++) {
@@ -119,7 +121,12 @@ public class LuciphorDtaselectIntegrator {
 							}
 						}
 						// now add at the end the new columns
-						newLineValues.add(originalSequence);
+						if (originalSequence.equals(sequenceToReplace)) {
+							newLineValues.add("");
+						} else {
+							numChanged++;
+							newLineValues.add(originalSequence);
+						}
 						newLineValues.add(String.valueOf(luciphorEntry.getGlobalFLR()));
 						newLineValues.add(String.valueOf(luciphorEntry.getLocalFLR()));
 						// get the new line as string
@@ -134,7 +141,7 @@ public class LuciphorDtaselectIntegrator {
 						}
 						// write the new line
 						fw.write(newLine.toString() + "\n");
-						numChanged++;
+
 						continue;
 					} else {
 						fw.write(line + "\t\t\t\n");
