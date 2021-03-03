@@ -14,15 +14,20 @@ public class LuciphorEntry {
 	private final String predictedSequence;
 	private final double localFLR;
 	private final double globalFLR;
-	private final double score;
+	private final double pep1Score;
+	private final double pep2Score;
+	private final double deltaScore;
 	private static Set<Character> modifiedAAs = new THashSet<Character>();
 
-	public LuciphorEntry(String psmID, String predictedSequence, double localFLR, double globalFLR, double score) {
+	public LuciphorEntry(String psmID, String predictedSequence, double localFLR, double globalFLR, double pep1Score,
+			double pep2Score, double deltaScore) {
 		this.psmID = psmID;
 		this.predictedSequence = predictedSequence;
 		this.localFLR = localFLR;
 		this.globalFLR = globalFLR;
-		this.score = score;
+		this.pep1Score = pep1Score;
+		this.pep2Score = pep2Score;
+		this.deltaScore = deltaScore;
 		findModifiedAAs(predictedSequence);
 	}
 
@@ -125,8 +130,16 @@ public class LuciphorEntry {
 		return ret;
 	}
 
-	public double getScore() {
-		return score;
+	public double getPep1Score() {
+		return pep1Score;
+	}
+
+	public double getPep2Score() {
+		return pep2Score;
+	}
+
+	public double getDeltaScore() {
+		return deltaScore;
 	}
 
 }
