@@ -21,6 +21,7 @@ public class LuciphorDtaselectIntegratorApplication implements CommandLineRunner
 	private static final String OPTION_LFLR = "lflr";
 	private static final String OPTION_GFLR = "gflr";
 	private static final String OPTION_DTA = "dta";
+	public static final String OPTION_REMOVE = "rem";
 
 	public static void main(String[] args) {
 		options = defineCommandLineOptions();
@@ -68,6 +69,10 @@ public class LuciphorDtaselectIntegratorApplication implements CommandLineRunner
 		// dtaselect file
 		options.addOption(
 				Option.builder(OPTION_DTA).desc("Full path to dtaselect results file").hasArg().required().build());
+		// remove option
+		options.addOption(Option.builder(OPTION_REMOVE)
+				.desc("If present, it will remove the PSMs that don't pass threshold on Luciphor's scores")
+				.hasArg(false).required().build());
 
 		return options;
 
@@ -80,6 +85,7 @@ public class LuciphorDtaselectIntegratorApplication implements CommandLineRunner
 		String dtaselectPath = null;
 		Double lflrThreshold = null;
 		Double gflrThreshold = null;
+		boolean removePSMsNotPassingThreshold = false;
 
 		final CommandLineParser parser = new DefaultParser();
 		final CommandLine cmd = parser.parse(options, args);
@@ -117,11 +123,14 @@ public class LuciphorDtaselectIntegratorApplication implements CommandLineRunner
 						+ "). It must be a real number between 0 and 1.0");
 			}
 		}
-
+		if (cmd.hasOption(OPTION_REMOVE)) {
+			removePSMsNotPassingThreshold = true;
+		}
 		final LuciphorDtaselectIntegrator luciphorIntegrator = new LuciphorDtaselectIntegrator(luciphorPath,
-				dtaselectPath, lflrThreshold, gflrThreshold);
+				dtaselectPath, lflrThreshold, gflrThreshold, removePSMsNotPassingThreshold);
 		luciphorIntegrator.run();
 		System.out.println("Program finished correctly");
+
 	}
 
 }

@@ -24,6 +24,7 @@ public class LuciphorDtaselectIntegrator {
 	private final File dtaselectPath;
 	private final Double lflrThreshold;
 	private final Double gflrThreshold;
+	private final boolean removePSMsNotPassingThreshold;
 	private boolean copied;
 	private final static String COL_SPEC_ID = "specId";
 	private static final String COL_PRED_PEP1 = "predictedPep1";
@@ -34,13 +35,17 @@ public class LuciphorDtaselectIntegrator {
 	private static final String COL_PEP1SCORE = "pep1score";
 	private static final String COL_PEP2SCORE = "pep2score";
 	private static final String COL_DELTASCORE = "deltaScore";
+	private static final String REDUNDANCY = "Redundancy";
+	private static final String SEQUENCE_COUNT = "Sequence Count";
+	private static final String SPECTRUM_COUNT = "Spectrum Count";
 
 	public LuciphorDtaselectIntegrator(String luciphorPath, String dtaselectPath, Double lflrThreshold,
-			Double gflrThreshold) {
+			Double gflrThreshold, boolean removePSMsNotPassingThreshold) {
 		this.luciphorPath = new File(luciphorPath);
 		this.dtaselectPath = new File(dtaselectPath);
 		this.lflrThreshold = lflrThreshold;
 		this.gflrThreshold = gflrThreshold;
+		this.removePSMsNotPassingThreshold = removePSMsNotPassingThreshold;
 	}
 
 	public void run() throws Exception {
@@ -73,43 +78,96 @@ public class LuciphorDtaselectIntegrator {
 			final BufferedReader br = new BufferedReader(new FileReader(backupDTASelect));
 			String line = null;
 			boolean isPSMLine = false;
-			boolean isPSMHeader = false;
 			boolean passedPSMHeader = false;
-			TObjectIntMap<String> indexByHeader = null;
+			boolean isFinalTable = false;
+			boolean isProtein = false;
+			TObjectIntMap<String> indexByPSMHeader = null;
+			TObjectIntMap<String> indexByProteinHeader = null;
 			int numPSMs = 0;
+			int numPSMsRemoved = 0;
+			int numProteinsRemoved = 0;
+			int numPSMsOfLastProtein = 0;
+			StringBuilder linesForProtein = new StringBuilder();
 			while ((line = br.readLine()) != null) {
+
 				// what is this line?
-				if (line.startsWith("Unique\t")) {
-					isPSMHeader = true;
-					passedPSMHeader = true;
-				} else if (line.startsWith("\t")) {
-					isPSMLine = true;
-				} else if (line.startsWith("*\t")) {
-					isPSMLine = true;
-				} else {
-					isPSMLine = false;
-					isPSMHeader = false;
-				}
-				if (isPSMHeader) {
-					// get the indexes of the headers
-					indexByHeader = getIndexByHeader(line);
-					// add new columns for the original sequence and the luciphor scores
-					fw.write(line + "\toriginal_sequence\tluciphor_pep1Score\tluciphor_pep2Score\tluciphor_deltaScore\t"
-							+ COL_GLOBAL_FLR + "\t" + COL_LOCAL_FLR + "\n");
-					continue;
-				}
-				if (!isPSMLine) {
+				if (isFinalTable) {
 					// write it as it is
 					fw.write(line + "\n");
 					continue;
+				} else if (line.startsWith("Locus\t")) {
+					indexByProteinHeader = getIndexByHeader(line);
+					// write it as it is
+					fw.write(line + "\n");
+					continue;
+				} else if (line.startsWith("Unique\t")) {
+					// get the indexes of the headers
+					indexByPSMHeader = getIndexByHeader(line);
+					// add new columns for the original sequence and the luciphor scores
+					fw.write(line + "\toriginal_sequence\tluciphor_pep1Score\tluciphor_pep2Score\tluciphor_deltaScore\t"
+							+ COL_GLOBAL_FLR + "\t" + COL_LOCAL_FLR + "\n");
+					passedPSMHeader = true;
+					continue;
+
+				} else if (line.startsWith("\tProteins")) { // starts the table at the bottom of DTASelect
+					if (!"".equals(linesForProtein.toString())) {
+						if (numPSMsOfLastProtein > 0) {
+							fw.write(processProteinLines(linesForProtein.toString(), indexByPSMHeader,
+									indexByProteinHeader)); // write latest protein info
+						} else {
+							numProteinsRemoved++;
+						}
+					}
+					linesForProtein = new StringBuilder();
+					isPSMLine = false;
+					isProtein = false;
+					isFinalTable = true;
+					// write it as it is
+					fw.write(line + "\n");
+					continue;
+				} else if (line.startsWith("\t")) {
+					isPSMLine = true;
+					isProtein = false;
+				} else if (line.startsWith("*\t")) {
+					isPSMLine = true;
+					isProtein = false;
 				} else {
+					if (passedPSMHeader && !isFinalTable) {
+						// THIS IS A PROTEIN LINE
+
+						if (!isProtein) { // if before we were not in a protein
+							// this is a protein that is new
+							if (!"".equals(linesForProtein.toString())) {
+								if (numPSMsOfLastProtein > 0) {
+									// I print the last protein lines if it had some PSMs
+									fw.write(processProteinLines(linesForProtein.toString(), indexByPSMHeader,
+											indexByProteinHeader));
+									linesForProtein = new StringBuilder();
+									numPSMsOfLastProtein = 0;
+								} else {
+									linesForProtein = new StringBuilder();
+									numProteinsRemoved++;
+								}
+							}
+						}
+						linesForProtein.append(line + "\n");
+						isProtein = true;
+					} else {
+						// write it as it is
+						fw.write(line + "\n");
+						continue;
+					}
+					isPSMLine = false;
+				}
+
+				if (isPSMLine) {
 					numPSMs++;
 					final String[] split = line.split("\t");
-					final String psmID = split[indexByHeader.get(DTA_COL_PSMID)];
+					final String psmID = split[indexByPSMHeader.get(DTA_COL_PSMID)];
 					if (filteredLuciphorEntriesByPSMID.containsKey(psmID)) {
 						final LuciphorEntry luciphorEntry = filteredLuciphorEntriesByPSMID.get(psmID);
 						// replace sequence
-						final String originalSequence = split[indexByHeader.get(DTA_COL_SEQUENCE)];
+						final String originalSequence = split[indexByPSMHeader.get(DTA_COL_SEQUENCE)];
 						final String sequenceToReplace = luciphorEntry.getFormattedPredictedSequence(originalSequence);
 //						if (originalSequence.equals(sequenceToReplace)) {
 //							fw.write(line + "\t\t\t\t\t\t\n");
@@ -118,7 +176,7 @@ public class LuciphorDtaselectIntegrator {
 						// create new array of values
 						final List<String> newLineValues = new ArrayList<String>();
 						for (int i = 0; i < split.length; i++) {
-							if (i == indexByHeader.get(DTA_COL_SEQUENCE)) {
+							if (i == indexByPSMHeader.get(DTA_COL_SEQUENCE)) {
 								newLineValues.add(sequenceToReplace);
 							} else {
 								newLineValues.add(split[i]);
@@ -148,12 +206,19 @@ public class LuciphorDtaselectIntegrator {
 							newLine.append(value);
 							i++;
 						}
-						// write the new line
-						fw.write(newLine.toString() + "\n");
 
+						// write the new line for the PSM
+						linesForProtein.append(newLine.toString() + "\n");
+						numPSMsOfLastProtein++;
 						continue;
 					} else {
-						fw.write(line + "\t\t\t\t\t\t\n");
+						// in this case it is because it doesn't pass the threshold
+						if (!removePSMsNotPassingThreshold) {
+							linesForProtein.append(line + "\t\t\t\t\t\t\n");
+							numPSMsOfLastProtein++;
+						} else {
+							numPSMsRemoved++;
+						}
 					}
 				}
 			}
@@ -162,7 +227,14 @@ public class LuciphorDtaselectIntegrator {
 			fw.close();
 			System.out.println(numChanged + "/" + numPSMs + " " + getPercentageString(numChanged, numPSMs)
 					+ " PSM entries with some changes in their PTM localizations were incorporated in the DTASelect file");
-		} catch (final Exception e) {
+			if ((this.lflrThreshold != null || gflrThreshold != null) && removePSMsNotPassingThreshold) {
+				System.out.println(numPSMsRemoved + " PSMs and " + numProteinsRemoved
+						+ " proteins were removed because Luciphor didn't give enough confidence to them (and option "
+						+ LuciphorDtaselectIntegratorApplication.OPTION_REMOVE + " was activated)");
+			}
+		} catch (
+
+		final Exception e) {
 			if (copied) {
 				// copy back
 				FileUtils.copyFile(backupDTASelect, dtaselectPath);
@@ -170,6 +242,54 @@ public class LuciphorDtaselectIntegrator {
 		} finally {
 
 		}
+	}
+
+	/**
+	 * Processes the lines containing a protein or proteins of a protein group and
+	 * their PSMs, modifying the columns for spec counts and peptides
+	 * 
+	 * @param lines
+	 * @param numPSMsOfLastProtein
+	 * @param sequencesPlusChargeOfLastProtein
+	 * @param indexByPSMHeader
+	 * @return
+	 */
+	private String processProteinLines(String linesString, TObjectIntMap<String> indexByPSMHeader,
+			TObjectIntMap<String> indexByProteinHeader) {
+		final String[] lines = linesString.split("\n");
+		// first, I look for the lines that are PSMs and I grab the peptide sequences
+		int numPSMEntries = 0;
+		int numTotalPSMs = 0;
+		for (final String line : lines) {
+			if (line.startsWith("*\t") || line.startsWith("\t")) {
+				// is a PSM
+				numPSMEntries++;
+				final String[] psmColumns = line.split("\t");
+				final int spc = Integer.valueOf(psmColumns[indexByPSMHeader.get(REDUNDANCY)]);
+				numTotalPSMs += spc;
+			}
+		}
+		// now we have the number of entries and the number of PSMs
+		final StringBuilder sb = new StringBuilder();
+		for (final String line : lines) {
+			if (line.startsWith("*\t") || line.startsWith("\t")) {
+				sb.append(line + "\n");
+			} else {
+				// is a protein
+				final String[] proteinColumns = line.split("\t");
+				proteinColumns[indexByProteinHeader.get(SEQUENCE_COUNT)] = String.valueOf(numPSMEntries);
+				proteinColumns[indexByProteinHeader.get(SPECTRUM_COUNT)] = String.valueOf(numTotalPSMs);
+				for (int i = 0; i < proteinColumns.length; i++) {
+					if (i > 0) {
+						sb.append("\t");
+					}
+					final String proteinColumn = proteinColumns[i];
+					sb.append(proteinColumn);
+				}
+				sb.append("\n");
+			}
+		}
+		return sb.toString();
 	}
 
 	private static final DecimalFormat f = new DecimalFormat("#.#%");
