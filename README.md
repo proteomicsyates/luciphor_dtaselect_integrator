@@ -5,10 +5,10 @@ Program that integrates results from Luciphor (PTM localization scoring algorith
 
 Input:  
 
-- luciphor output file (**-luc**)
-- dtaselect output file (**-dta**)
-- localLFR threshold \[optional\] (**-lflr**) 
-- globalLFR threshold \[optional\] (**-gflr**)
+- luciphor output file (**-luc** path)
+- dtaselect output file (**-dta** path)
+- localLFR threshold \[optional\] (**-lflr** double) 
+- globalLFR threshold \[optional\] (**-gflr** double)
 - remove or not PSMs that don't pass the thresholds (**-rem**)
 
 Output:
